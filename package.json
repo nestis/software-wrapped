@@ -1,0 +1,23 @@
+{
+  "name": "software-wrapped",
+  "version": "1.0.0",
+  "description": "PR metrics aggregation from Bitbucket Server and GitHub Enterprise",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.600.0",
+    "@aws-sdk/lib-dynamodb": "^3.600.0",
+    "axios": "^1.7.0",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "ts-node": "^10.9.0"
+  }
+}
