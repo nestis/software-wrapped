@@ -14,7 +14,8 @@ export interface PullRequestMetric {
 export interface RepositoryConfig {
   source: "bitbucket" | "github";
   project: string;       // Bitbucket project key or GitHub org
-  slug: string;          // repo slug
+  team: string;          // team name for aggregation
+  exclude?: string[];    // repo slugs to exclude (all repos are included by default)
 }
 
 export interface FetchRequest {

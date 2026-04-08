@@ -20,6 +20,11 @@ interface GitHubPRListItem {
   } | null;
 }
 
+interface GitHubRepoListItem {
+  name: string;
+  archived: boolean;
+}
+
 export class GitHubService {
   private client: AxiosInstance;
 
@@ -33,9 +38,39 @@ export class GitHubService {
     });
   }
 
+  async listRepositories(org: string): Promise<string[]> {
+    const repos: string[] = [];
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await this.client.get<GitHubRepoListItem[]>(
+        `/orgs/${org}/repos`,
+        { params: { per_page: 100, page, type: "all" } }
+      );
+
+      const items = response.data;
+      if (items.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const repo of items) {
+        if (!repo.archived) {
+          repos.push(repo.name);
+        }
+      }
+
+      page++;
+    }
+
+    return repos;
+  }
+
   async fetchPullRequests(
     org: string,
     repo: string,
+    team: string,
     from: Date,
     to: Date
   ): Promise<PullRequestMetric[]> {
@@ -83,7 +118,7 @@ export class GitHubService {
             dateOpened: createdDate.toISOString(),
             size: detail.additions + detail.deletions,
             author: pr.user?.login ?? "unknown",
-            team: org,
+            team,
             source: "github",
             repository,
             allPrs: "ALL",

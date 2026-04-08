@@ -6,7 +6,7 @@ export const config = {
     token: process.env.BITBUCKET_TOKEN || "",
   },
   github: {
-    baseUrl: process.env.GITHUB_BASE_URL || "",
+    baseUrl: process.env.GITHUB_BASE_URL || "https://api.github.com",
     token: process.env.GITHUB_TOKEN || "",
   },
   dynamodb: {
@@ -18,14 +18,14 @@ export const config = {
 };
 
 /**
- * Configure the repositories to track here.
- * Team is derived from the project key (Bitbucket) or org (GitHub).
+ * Configure the projects/orgs to track here.
+ * All repos within the project/org are included by default.
+ * Use `exclude` to skip specific repo slugs.
  */
 export const repositories: RepositoryConfig[] = [
-  // Bitbucket Server examples:
-  // { source: "bitbucket", project: "RCSBOM", slug: "dbom-akkaservice" },
-  // { source: "bitbucket", project: "RCSBOM", slug: "dbom-frontend" },
+  // Bitbucket Server — all repos in RCSBOM except dbom-akkaservice:
+  // { source: "bitbucket", project: "RCSBOM", team: "DBOM", exclude: ["dbom-akkaservice"] },
 
-  // GitHub Enterprise examples:
-  // { source: "github", project: "my-org", slug: "my-repo" },
+  // GitHub (github.com) — all repos in the org:
+  // { source: "github", project: "bct-adidas", team: "BCT" },
 ];

@@ -14,7 +14,8 @@ const dynamoService = new DynamoService();
  * POST /api/fetch
  * Body: { from: "2024-01-01", to: "2024-06-30" }
  *
- * Fetches PRs from all configured repositories within the date range
+ * For each configured project/org, discovers all repositories,
+ * applies the exclude list, fetches PRs within the date range,
  * and stores them in DynamoDB.
  */
 router.post("/", async (req: Request, res: Response) => {
@@ -40,36 +41,67 @@ router.post("/", async (req: Request, res: Response) => {
 
   const allMetrics: PullRequestMetric[] = [];
   const errors: Array<{ repository: string; error: string }> = [];
+  let totalRepos = 0;
 
-  const fetchPromises = repositories.map(async (repo) => {
+  const fetchPromises = repositories.map(async (entry) => {
+    const excludeSet = new Set(entry.exclude ?? []);
+
     try {
-      let metrics: PullRequestMetric[];
+      // Discover all repos in the project/org
+      let slugs: string[];
 
-      if (repo.source === "bitbucket") {
-        metrics = await bitbucketService.fetchPullRequests(
-          repo.project,
-          repo.slug,
-          fromDate,
-          toDate
-        );
+      if (entry.source === "bitbucket") {
+        slugs = await bitbucketService.listRepositories(entry.project);
       } else {
-        metrics = await githubService.fetchPullRequests(
-          repo.project,
-          repo.slug,
-          fromDate,
-          toDate
-        );
+        slugs = await githubService.listRepositories(entry.project);
       }
 
-      if (metrics.length > 0) {
-        await dynamoService.storePullRequests(metrics);
-      }
+      // Apply exclusion list
+      const filteredSlugs = slugs.filter((s) => !excludeSet.has(s));
+      totalRepos += filteredSlugs.length;
 
-      allMetrics.push(...metrics);
+      // Fetch PRs for each repo
+      const repoPromises = filteredSlugs.map(async (slug) => {
+        try {
+          let metrics: PullRequestMetric[];
+
+          if (entry.source === "bitbucket") {
+            metrics = await bitbucketService.fetchPullRequests(
+              entry.project,
+              slug,
+              entry.team,
+              fromDate,
+              toDate
+            );
+          } else {
+            metrics = await githubService.fetchPullRequests(
+              entry.project,
+              slug,
+              entry.team,
+              fromDate,
+              toDate
+            );
+          }
+
+          if (metrics.length > 0) {
+            await dynamoService.storePullRequests(metrics);
+          }
+
+          allMetrics.push(...metrics);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors.push({
+            repository: `${entry.source}/${entry.project}/${slug}`,
+            error: message,
+          });
+        }
+      });
+
+      await Promise.all(repoPromises);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push({
-        repository: `${repo.source}/${repo.project}/${repo.slug}`,
+        repository: `${entry.source}/${entry.project} (listing repos)`,
         error: message,
       });
     }
@@ -79,7 +111,7 @@ router.post("/", async (req: Request, res: Response) => {
 
   res.json({
     fetched: allMetrics.length,
-    repositories: repositories.length,
+    repositories: totalRepos,
     errors: errors.length > 0 ? errors : undefined,
     dateRange: { from, to },
   });

@@ -34,6 +34,11 @@ interface BitbucketPagedResponse<T> {
   size: number;
 }
 
+interface BitbucketRepo {
+  slug: string;
+  name: string;
+}
+
 export class BitbucketService {
   private client: AxiosInstance;
 
@@ -47,9 +52,33 @@ export class BitbucketService {
     });
   }
 
+  async listRepositories(project: string): Promise<string[]> {
+    const slugs: string[] = [];
+    let start = 0;
+    let isLastPage = false;
+
+    while (!isLastPage) {
+      const response = await this.client.get<BitbucketPagedResponse<BitbucketRepo>>(
+        `/rest/api/1.0/projects/${project}/repos`,
+        { params: { start, limit: 25 } }
+      );
+
+      const page = response.data;
+      for (const repo of page.values) {
+        slugs.push(repo.slug);
+      }
+
+      isLastPage = page.isLastPage;
+      start = page.nextPageStart ?? start + 25;
+    }
+
+    return slugs;
+  }
+
   async fetchPullRequests(
     project: string,
     slug: string,
+    team: string,
     from: Date,
     to: Date
   ): Promise<PullRequestMetric[]> {
@@ -92,7 +121,7 @@ export class BitbucketService {
             dateOpened: createdDate.toISOString(),
             size,
             author: pr.author.user.displayName || pr.author.user.slug,
-            team: project,
+            team,
             source: "bitbucket",
             repository,
             allPrs: "ALL",
